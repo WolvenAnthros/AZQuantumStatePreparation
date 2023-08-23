@@ -2,7 +2,7 @@ from TicTacToe import TicTacToe
 import numpy as np
 import torch
 from Model import ResNet
-from concurrent.futures import ProcessPoolExecutor
+import torch.multiprocessing as mp
 
 
 class Node:

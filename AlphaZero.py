@@ -1,9 +1,11 @@
+import concurrent
 import random
 import torch
 import numpy as np
-import torch.multiprocessing as multiprocessing
+import torch.multiprocessing as mp
+from concurrent.futures import ProcessPoolExecutor as Pool
 import torch.nn.functional as F
-from MCTS import MCTS
+import MCTS
 from tqdm import trange
 from TicTacToe import TicTacToe
 from Model import ResNet
@@ -15,7 +17,7 @@ class AlphaZero:
         self.game = game
         self.optimizer = optimizer
         self.model = model
-        self.mcts = MCTS(game, args, model)
+        self.mcts = MCTS.MCTS(game, args, model)
 
     def selfPlay(self):
         return_memory = []
@@ -95,36 +97,23 @@ class AlphaZero:
             # loop over self-play games
             self.model.eval()
 
-            # with ProcessPoolExecutor(max_workers=5) as executor:
-            #     processes = [executor.submit(self.selfPlay) for _ in range(self.args['num_self_plays'] // self.args['num_parallel_games'])]
-            #
-            # for process in processes:
-            #     memory += process.result()
-
-            # jobs = []
-            # pipe_list = []
-            # for i in range(self.args['num_self_plays'] // self.args['num_parallel_games']):
-            #     recv_end, send_end = multiprocessing.Pipe(False)
-            #     p = multiprocessing.Process(target=self.selfPlay, args=(send_end,))
-            #     jobs.append(p)
-            #     pipe_list.append(recv_end)
-            #     p.start()
-            #
-            # for proc in jobs:
-            #     proc.join()
-            # memory = [result.recv() for result in pipe_list]
-
             # processes = []
             # for _ in range(self.args['num_self_plays'] // self.args['num_parallel_games']):
-            #     p = multiprocessing.Process(target=self.selfPlay)
+            #     p = mp.Process(target=self.selfPlay)
             #     p.start()
             #     processes.append(p)
             #
             # for process in processes:
             #     process.join()
+            num_processes = self.args['num_self_plays'] // self.args['num_parallel_games']
 
-            for self_play_iteration in trange(self.args['num_self_plays'] // self.args['num_parallel_games']):
-                memory += self.selfPlay()
+            # with Pool(max_workers=num_processes) as executor:
+            #     results = [executor.submit(self.selfPlay) for i in range(num_processes)]
+            #     for f in concurrent.futures.as_completed(results):
+            #         print(f.result())
+
+            # for self_play_iteration in trange(self.args['num_self_plays'] // self.args['num_parallel_games']):
+            #     memory += self.selfPlay()
 
             self.model.train()
 
