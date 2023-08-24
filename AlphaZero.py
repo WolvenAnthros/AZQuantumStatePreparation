@@ -5,6 +5,8 @@ import numpy as np
 import torch.multiprocessing as mp
 from concurrent.futures import ProcessPoolExecutor as Pool
 import torch.nn.functional as F
+import tqdm
+
 import MCTS
 from tqdm import trange
 from TicTacToe import TicTacToe
@@ -12,12 +14,12 @@ from Model import ResNet
 
 
 class AlphaZero:
-    def __init__(self, model, optimizer, game, args):
+    def __init__(self, model,mcts, optimizer, game, args):
         self.args = args
         self.game = game
         self.optimizer = optimizer
         self.model = model
-        self.mcts = MCTS.MCTS(game, args, model)
+        self.mcts = mcts #MCTS.MCTS(game, args, model)
 
     def selfPlay(self):
         return_memory = []
@@ -97,23 +99,21 @@ class AlphaZero:
             # loop over self-play games
             self.model.eval()
 
-            # processes = []
-            # for _ in range(self.args['num_self_plays'] // self.args['num_parallel_games']):
-            #     p = mp.Process(target=self.selfPlay)
-            #     p.start()
-            #     processes.append(p)
-            #
-            # for process in processes:
-            #     process.join()
-            num_processes = self.args['num_self_plays'] // self.args['num_parallel_games']
 
-            # with Pool(max_workers=num_processes) as executor:
-            #     results = [executor.submit(self.selfPlay) for i in range(num_processes)]
-            #     for f in concurrent.futures.as_completed(results):
-            #         print(f.result())
+            num_processes = self.args['num_parallel_games']
 
-            # for self_play_iteration in trange(self.args['num_self_plays'] // self.args['num_parallel_games']):
-            #     memory += self.selfPlay()
+
+
+
+
+
+
+            with tqdm.tqdm(total = num_processes) as progress_bar:
+                with Pool(max_workers=num_processes) as executor:
+                    results = [executor.submit(self.selfPlay) for i in range(num_processes)]
+                    for f in concurrent.futures.as_completed(results):
+                        memory += f.result()
+                        progress_bar.update(1)
 
             self.model.train()
 
@@ -136,7 +136,7 @@ class SPG:
 if __name__ == '__main__':
     tictactoe = TicTacToe()
 
-    device = torch.device('cpu') # 'cuda' if torch.cuda.is_available() else
+    device = torch.device('cuda') # 'cuda' if torch.cuda.is_available() else
     print(f'Selected device: {device}')
     model = ResNet(tictactoe, 4, 64, device)
 
@@ -146,14 +146,14 @@ if __name__ == '__main__':
         'num_searches': 60,
         'num_iterations': 6,
         'num_self_plays': 500,
-        'num_parallel_games': 100,
+        'num_parallel_games': 2, # number of cores taken by the computation!
         'num_epochs': 4,
         'batch_size': 64,
         'temperature': 1,
         'dirichlet_epsilon': 0.25,
         'dirichlet_alpha': 0.3
     }
-
-    alphazero = AlphaZero(model, optimizer, tictactoe, args)
+    mcts = MCTS.MCTS(game=tictactoe, model=model,args=args)
+    alphazero = AlphaZero(model,mcts, optimizer, tictactoe, args )
 
     alphazero.learn()

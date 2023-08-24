@@ -7,8 +7,8 @@ class TicTacToe:
     '''
 
     def __init__(self):
-        self.row_count = 5
-        self.column_count = 5
+        self.row_count = 3
+        self.column_count = 3
         self.action_size = self.row_count * self.column_count  # actions correspond to board grid
 
     def get_initial_state(self):
