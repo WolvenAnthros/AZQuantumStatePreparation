@@ -7,6 +7,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from TicTacToe import TicTacToe
+from SFQ_sequence import SFQ
 
 torch.manual_seed(0)
 
@@ -15,8 +16,8 @@ class ResNet(nn.Module):
         super().__init__(*args, **kwargs)
         self.device = device
         self.startblock = nn.Sequential(
-            nn.Conv2d(3, num_hidden, kernel_size=3, padding=1),
-            nn.BatchNorm2d(num_hidden),
+            nn.Conv1d(4, num_hidden, kernel_size=3, padding=1),
+            nn.BatchNorm1d(num_hidden),
             nn.ReLU()
         )
 
@@ -25,20 +26,20 @@ class ResNet(nn.Module):
         )
 
         self.policyHead = nn.Sequential(
-            nn.Conv2d(num_hidden, 32, kernel_size=3, padding=1),
-            nn.BatchNorm2d(32),
+            nn.Conv1d(num_hidden, 32, kernel_size=3, padding=1),
+            nn.BatchNorm1d(32),
             nn.ReLU(),
             nn.Flatten(),
-            nn.Linear(in_features=32 * game.row_count * game.column_count, out_features=game.action_size)
+            nn.Linear(in_features=32 * game.length, out_features=game.action_size)
         )
 
         self.valueHead = nn.Sequential(
-            nn.Conv2d(num_hidden, 3, kernel_size=3, padding=1),
-            nn.BatchNorm2d(3),
+            nn.Conv1d(num_hidden, 3, kernel_size=3, padding=1),
+            nn.BatchNorm1d(3),
             nn.ReLU(),
             nn.Flatten(),
-            nn.Linear(3 * game.row_count * game.column_count, 1),
-            nn.Tanh()
+            nn.Linear(3 * game.length, 1),
+            nn.ReLU()
         )
         self.to(device)
 
@@ -54,10 +55,10 @@ class ResNet(nn.Module):
 class ResBlock(nn.Module):
     def __init__(self, num_hidden):
         super().__init__()
-        self.conv1 = nn.Conv2d(num_hidden, num_hidden, kernel_size=3, padding=1)
-        self.bn1 = nn.BatchNorm2d(num_hidden)
-        self.conv2 = nn.Conv2d(num_hidden, num_hidden, kernel_size=3, padding=1)
-        self.bn2 = nn.BatchNorm2d(num_hidden)
+        self.conv1 = nn.Conv1d(num_hidden, num_hidden, kernel_size=3, padding=1)
+        self.bn1 = nn.BatchNorm1d(num_hidden)
+        self.conv2 = nn.Conv1d(num_hidden, num_hidden, kernel_size=3, padding=1)
+        self.bn2 = nn.BatchNorm1d(num_hidden)
 
     def forward(self, x):
         residual = x
@@ -69,15 +70,15 @@ class ResBlock(nn.Module):
 
 
 if __name__ == '__main__':
-    tictactoe = TicTacToe()
+    tictactoe = SFQ()
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     state = tictactoe.get_initial_state()
     state = tictactoe.get_next_state(state, 2, -1)
-    state = tictactoe.get_next_state(state, 4, -1)
-    state = tictactoe.get_next_state(state, 8, 1)
-    state = tictactoe.get_next_state(state, 6, 1)
+    state = tictactoe.get_next_state(state, 35, -1)
+    state = tictactoe.get_next_state(state, 171, 1)
+    state = tictactoe.get_next_state(state, 230, 1)
 
     print(state)
     encoded_state = tictactoe.get_encoded_state(state)
@@ -87,7 +88,7 @@ if __name__ == '__main__':
     tensor_state = torch.tensor(encoded_state, device=device).unsqueeze(0) # add additional brackets
 
     model = ResNet(tictactoe, 4,64, device=device)
-    model.load_state_dict(torch.load('model_5.pt', map_location=device))
+    # model.load_state_dict(torch.load('models/model_5.pt', map_location=device))
     model.eval()
 
     policy, value = model(tensor_state)

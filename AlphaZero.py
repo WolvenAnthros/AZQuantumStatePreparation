@@ -3,14 +3,19 @@ import random
 import torch
 import numpy as np
 import torch.multiprocessing as mp
-from concurrent.futures import ProcessPoolExecutor as Pool
+from torch.utils.tensorboard import SummaryWriter
+
 import torch.nn.functional as F
 import tqdm
 
 import MCTS
 from tqdm import trange
 from TicTacToe import TicTacToe
-from Model import ResNet
+from SFQ_sequence import SFQ
+#from Model import ResNet
+from Model_TicTacToe import ResNet
+
+writer = SummaryWriter()
 
 
 class AlphaZero:
@@ -69,10 +74,15 @@ class AlphaZero:
 
     def train(self, memory):
         # shuffle train data
+
+        mean_policy_loss, mean_val_loss, mean_loss = 0, 0, 0
+        loss_index = 0
+
         random.shuffle(memory)
         for batch_idx in range(0, len(memory), self.args['batch_size']):
             sample = memory[batch_idx:min(len(memory) - 1,
-                                          batch_idx + self.args['batch_size'])]  # min len to not exceed memory buffer
+                                          batch_idx + self.args[
+                                              'batch_size'])]  # min len to not exceed memory buffer
             state, policy_targets, value_targets = zip(*sample)
 
             state, policy_targets, value_targets = np.array(state), np.array(policy_targets), np.array(
@@ -88,9 +98,16 @@ class AlphaZero:
             value_loss = F.mse_loss(out_value, value_targets)
             loss = policy_loss + value_loss
 
+            mean_policy_loss += policy_loss
+            mean_val_loss += value_loss
+            mean_loss += loss
+            loss_index += 1
+
             self.optimizer.zero_grad()
             loss.backward()
             self.optimizer.step()
+
+        return mean_policy_loss / loss_index, mean_val_loss / loss_index, mean_loss / loss_index
 
     def learn(self):
         for iteration in range(self.args['num_iterations']):
@@ -101,17 +118,24 @@ class AlphaZero:
 
             num_processes = self.args['num_parallel_games']
 
-            with tqdm.tqdm(total=num_processes) as progress_bar:
-                with Pool(max_workers=num_processes) as executor:
-                    results = [executor.submit(self.selfPlay) for i in range(num_processes)]
-                    for f in concurrent.futures.as_completed(results):
-                        memory += f.result()
-                        progress_bar.update(1)
+            # with tqdm.tqdm(total=num_processes) as progress_bar:
+            #     with Pool(max_workers=num_processes) as executor:
+            #         results = [executor.submit(self.selfPlay) for i in range(num_processes)]
+            #         for f in concurrent.futures.as_completed(results):
+            #             memory += f.result()
+            #             progress_bar.update(1)
+
+            for _ in trange(num_processes):
+                memory += self.selfPlay()
 
             self.model.train()
 
             for epoch in trange(self.args['num_epochs']):
-                self.train(memory)
+                policy_loss, value_loss, loss = self.train(memory)
+
+                writer.add_scalar('Policy loss', policy_loss, iteration + epoch)
+                writer.add_scalar('Value loss', value_loss, iteration + epoch)
+                writer.add_scalar('Total loss', loss, iteration + epoch)
 
             torch.save(self.model.state_dict(), f"models/model_{iteration}.pt")
             torch.save(self.optimizer.state_dict(), f"models/optimizer_{iteration}.pt")
@@ -136,11 +160,11 @@ if __name__ == '__main__':
     optimizer = torch.optim.Adam(model.parameters(), lr=0.001, weight_decay=0.0001)
     args = {
         'C': 2,
-        'num_searches': 1000,
+        'num_searches': 1000,  # 00
         'num_iterations': 8,
-        'num_self_plays': 500,
+        'num_self_plays': 500,  # 00
         'num_parallel_games': 5,  # number of cores taken by the computation!
-        'num_epochs': 4,
+        'num_epochs': 4,  # 4
         'batch_size': 128,
         'temperature': 1,
         'dirichlet_epsilon': 0.25,

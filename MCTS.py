@@ -2,7 +2,8 @@ from TicTacToe import TicTacToe
 import numpy as np
 import torch
 from Model import ResNet
-
+from SFQ_sequence import SFQ
+import tqdm
 
 class Node:
     def __init__(self, game, args, state, parent=None, action_taken=None, prior=0, visit_count=0):
@@ -58,31 +59,6 @@ class Node:
 
         return child
 
-        # action = np.random.choice(np.where(self.expandable_moves == 1)[0])
-        # self.expandable_moves[action] = 0
-
-    # def simulate(self):
-    #     value, is_terminal = self.game.get_value_and_terminated(self.state, self.action_taken)
-    #     value = self.game.get_opponent_value(value)
-    #
-    #     if is_terminal:
-    #         return value
-    #
-    #     rollout_state = self.state.copy()
-    #     rollout_player = 1
-    #
-    #     while True:
-    #         valid_moves = self.game.get_valid_moves(rollout_state)
-    #         action = np.random.choice(np.where(valid_moves == 1)[0])
-    #         rollout_state = self.game.get_next_state(rollout_state, action, rollout_player)
-    #         value, is_terminal = self.game.get_value_and_terminated(rollout_state, action)
-    #         if is_terminal:
-    #             if rollout_player == -1:
-    #                 value = self.game.get_opponent_value(value)
-    #             return value
-    #
-    #         rollout_player = self.game.get_opponent(rollout_player)
-
     def backpropagate(self, value):
         self.value_sum += value
         self.visit_count += 1
@@ -90,7 +66,6 @@ class Node:
         value = self.game.get_opponent_value(value)
         if self.parent is not None:
             self.parent.backpropagate(value)
-
 
 
 class MCTS:
@@ -213,8 +188,9 @@ class MCTS_Play:
         action_probs /= np.sum(action_probs)
         return action_probs
 
+
 if __name__ == '__main__':
-    tictactoe = TicTacToe()
+    tictactoe = SFQ()
     player = 1
 
     args = {
@@ -233,39 +209,57 @@ if __name__ == '__main__':
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     model = ResNet(tictactoe, 4, 64, device=torch.device('cpu'))
-    model.load_state_dict(torch.load('models/model_7.pt'))
+    model.load_state_dict(torch.load('models/model_5_sfq.pt'))
     model.eval()
-    #model = model.to(device)
+    # model = model.to(device)
     mcts = MCTS_Play(tictactoe, args, model)
     state = tictactoe.get_initial_state()
 
-    while True:
-        print(state)
+    # while True:
+    #     print(state)
+    #
+    #     if player == 1:
+    #         valid_moves = tictactoe.get_valid_moves(state)
+    #         print(f'valid moves: {[i for i in range(tictactoe.action_size) if valid_moves[i] == 1]}')
+    #         action = int(input(f'{player}: '))
+    #
+    #         # check if the action is valid
+    #         if valid_moves[action] == 0:
+    #             print('action not valid')
+    #             continue
+    #     else:
+    #         neutral_state = tictactoe.change_perspective(state, player)
+    #         mcts_probs = mcts.search(neutral_state)
+    #         action = np.argmax(mcts_probs)
+    #
+    #     state = tictactoe.get_next_state(state, action, player)
+    #
+    #     value, is_terminal = tictactoe.get_value_and_terminated(state, action)
+    #
+    #     if is_terminal:
+    #         print(state)
+    #         if value == 1:
+    #             print(player, "won")
+    #         else:
+    #             print("draw")
+    #         break
+    #
+    #     player = tictactoe.get_opponent(player)
 
-        if player == 1:
-            valid_moves = tictactoe.get_valid_moves(state)
-            print(f'valid moves: {[i for i in range(tictactoe.action_size) if valid_moves[i] == 1]}')
-            action = int(input(f'{player}: '))
-
-            # check if the action is valid
-            if valid_moves[action] == 0:
-                print('action not valid')
-                continue
-        else:
+    print(state)
+    with tqdm.tqdm(total=125) as bar:
+        while True:
             neutral_state = tictactoe.change_perspective(state, player)
             mcts_probs = mcts.search(neutral_state)
             action = np.argmax(mcts_probs)
+            bar.update(1)
+            state = tictactoe.get_next_state(state, action, player)
 
-        state = tictactoe.get_next_state(state, action, player)
+            value, is_terminal = tictactoe.get_value_and_terminated(state, action)
 
-        value, is_terminal = tictactoe.get_value_and_terminated(state, action)
+            if is_terminal:
+                print(state)
+                print(f'Fidelity: {value}')
+                break
 
-        if is_terminal:
-            print(state)
-            if value == 1:
-                print(player, "won")
-            else:
-                print("draw")
-            break
-
-        player = tictactoe.get_opponent(player)
+            player = tictactoe.get_opponent(player)
