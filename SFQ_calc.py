@@ -160,7 +160,7 @@ if __name__ == "__main__":
 
     # time_tick = time_list[np.argmax(wait_calculation(_u_matrix=u_matrix, num_timesteps=time_list))]
 
-    # time_tick = optimize.fmin(func=wait_calculation, x0=[10], args=(u_matrix,))
+    # time_tick = optimize.fmin(func=wait_calculation, x0=[10], params=(u_matrix,))
     # print(
     #     f'time ticks needed: {time_tick}, fidelity: {wait_calculation(_u_matrix=u_matrix, num_timesteps=[time_tick])}')
     # plt.plot(time_list * config['num_timesteps'] * 1e6, wait_calculation(time_list, u_matrix))

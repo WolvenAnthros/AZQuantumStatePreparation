@@ -4,7 +4,7 @@ import torch
 import numpy as np
 import torch.multiprocessing as mp
 from torch.utils.tensorboard import SummaryWriter
-
+from concurrent.futures import ProcessPoolExecutor as Pool
 import torch.nn.functional as F
 import tqdm
 
@@ -12,19 +12,21 @@ import MCTS
 from tqdm import trange
 from TicTacToe import TicTacToe
 from SFQ_sequence import SFQ
-#from Model import ResNet
+# from Model import ResNet
 from Model_TicTacToe import ResNet
 
 writer = SummaryWriter()
 
 
-class AlphaZero:
-    def __init__(self, model, mcts, optimizer, game, args):
-        self.args = args
+class AlphaZero(mp.Process):
+    def __init__(self, model, mcts, optimizer, game, params, queue):
+        mp.Process.__init__(self)
+        self.args = params
         self.game = game
         self.optimizer = optimizer
         self.model = model
-        self.mcts = mcts  # MCTS.MCTS(game, args, model)
+        self.mcts = mcts  # MCTS.MCTS(game, params, model)
+        self.queue = queue
 
     def selfPlay(self):
         return_memory = []
@@ -70,7 +72,7 @@ class AlphaZero:
 
             player = self.game.get_opponent(player)
 
-        return return_memory
+        self.queue.put(return_memory)
 
     def train(self, memory):
         # shuffle train data
@@ -97,7 +99,7 @@ class AlphaZero:
             policy_loss = F.cross_entropy(out_policy, policy_targets)
             value_loss = F.mse_loss(out_value, value_targets)
             loss = policy_loss + value_loss
-
+            print(f'Loss: {loss:.2f}, policy loss: {policy_loss:.2f}, value loss: {value_loss:.2f}')
             mean_policy_loss += policy_loss
             mean_val_loss += value_loss
             mean_loss += loss
@@ -157,20 +159,30 @@ if __name__ == '__main__':
     print(f'Selected device: {device}')
     model = ResNet(tictactoe, 4, 64, device)
 
-    optimizer = torch.optim.Adam(model.parameters(), lr=0.001, weight_decay=0.0001)
+    optimizer = torch.optim.Adam(model.parameters(), lr=2e-5, weight_decay=5e-4)
     args = {
         'C': 2,
-        'num_searches': 1000,  # 00
+        'num_searches': 100,  # 00
         'num_iterations': 8,
-        'num_self_plays': 500,  # 00
-        'num_parallel_games': 5,  # number of cores taken by the computation!
+        'num_self_plays': 50,  # 00
+        'num_parallel_games': 3,  # number of cores taken by the computation!
         'num_epochs': 4,  # 4
         'batch_size': 128,
         'temperature': 1,
         'dirichlet_epsilon': 0.25,
         'dirichlet_alpha': 0.3
     }
+    queue = mp.Queue()
+
+
     mcts = MCTS.MCTS(game=tictactoe, model=model, args=args)
-    alphazero = AlphaZero(model, mcts, optimizer, tictactoe, args)
+    alphazero = AlphaZero(model=model, mcts=mcts, optimizer=optimizer, game=tictactoe, params=args, queue=queue)
 
     alphazero.learn()
+
+    # with tqdm.tqdm(total=num_processes) as progress_bar:
+    #     with Pool(max_workers=num_processes) as executor:
+    #         results = [executor.submit(self.selfPlay) for i in range(num_processes)]
+    #         for f in concurrent.futures.as_completed(results):
+    #             memory += f.result()
+    #             progress_bar.update(1)
