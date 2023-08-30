@@ -56,8 +56,11 @@ class Node:
 
                 child = Node(self.game, self.args, child_state, self, action, prior=prob)
                 self.children.append(child)
-
-        return child
+        try:
+            return child
+        except UnboundLocalError:
+            print(f'Warning! No child is created! Policy: {policy}')
+            return None
 
     def backpropagate(self, value):
         self.value_sum += value
@@ -142,7 +145,11 @@ class MCTS_Play:
         self.args = args
         self.model = model
 
-    def search(self, state):
+    def search(self, state, proc_num):
+        weights = self.model.state_dict()['startBlock.0.weight'][0][0]
+        print(f'\033[96m In {proc_num} model is {weights} \033[0m')
+        # print(f'\033[96m Process {proc_num} started! \033[0m')
+        # print(f'\033[92m State: {state} \033[0m')
         with torch.no_grad():
             root = Node(self.game, self.args, state, visit_count=1)
 
@@ -152,7 +159,6 @@ class MCTS_Play:
             policy = torch.softmax(policy, dim=1).squeeze(0).cpu().numpy()
             policy = (1 - self.args['dirichlet_epsilon']) * policy + self.args['dirichlet_epsilon'] \
                      * np.random.dirichlet([self.args['dirichlet_alpha']] * self.game.action_size)
-
             valid_moves = self.game.get_valid_moves(state)
             policy *= valid_moves
             policy /= np.sum(policy)
@@ -171,10 +177,13 @@ class MCTS_Play:
                     policy, value = self.model(
                         torch.tensor(self.game.get_encoded_state(node.state), device=self.model.device).unsqueeze(0)
                     )
+                    #print(f'search_policy_1: {policy}')
                     policy = torch.softmax(policy, dim=1).squeeze(0).cpu().numpy()
+                    #print(f'search_policy_softmax: {policy}')
                     valid_moves = self.game.get_valid_moves(node.state)
                     policy *= valid_moves
                     policy /= np.sum(policy)
+                    #print(f'search_policy_end: {policy}')
 
                     value = value.item()
 

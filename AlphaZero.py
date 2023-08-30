@@ -2,11 +2,12 @@ import concurrent
 import random
 import torch
 import numpy as np
-import torch.multiprocessing as mp
 from torch.utils.tensorboard import SummaryWriter
-from concurrent.futures import ProcessPoolExecutor as Pool
 import torch.nn.functional as F
 import tqdm
+from concurrent.futures import ProcessPoolExecutor as Pool
+import concurrent.futures
+
 
 import MCTS
 from tqdm import trange
@@ -18,15 +19,13 @@ from Model_TicTacToe import ResNet
 writer = SummaryWriter()
 
 
-class AlphaZero(mp.Process):
-    def __init__(self, model, mcts, optimizer, game, params, queue):
-        mp.Process.__init__(self)
+class AlphaZero():
+    def __init__(self, model, mcts, optimizer, game, params):
         self.args = params
         self.game = game
         self.optimizer = optimizer
         self.model = model
         self.mcts = mcts  # MCTS.MCTS(game, params, model)
-        self.queue = queue
 
     def selfPlay(self):
         return_memory = []
@@ -72,7 +71,7 @@ class AlphaZero(mp.Process):
 
             player = self.game.get_opponent(player)
 
-        self.queue.put(return_memory)
+        return return_memory
 
     def train(self, memory):
         # shuffle train data
@@ -158,7 +157,7 @@ if __name__ == '__main__':
     device = torch.device('cuda')  # 'cuda' if torch.cuda.is_available() else
     print(f'Selected device: {device}')
     model = ResNet(tictactoe, 4, 64, device)
-
+    #model.share_memory()
     optimizer = torch.optim.Adam(model.parameters(), lr=2e-5, weight_decay=5e-4)
     args = {
         'C': 2,
@@ -172,11 +171,10 @@ if __name__ == '__main__':
         'dirichlet_epsilon': 0.25,
         'dirichlet_alpha': 0.3
     }
-    queue = mp.Queue()
 
 
     mcts = MCTS.MCTS(game=tictactoe, model=model, args=args)
-    alphazero = AlphaZero(model=model, mcts=mcts, optimizer=optimizer, game=tictactoe, params=args, queue=queue)
+    alphazero = AlphaZero(model=model, mcts=mcts, optimizer=optimizer, game=tictactoe, params=args)
 
     alphazero.learn()
 
