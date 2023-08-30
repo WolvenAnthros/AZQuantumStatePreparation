@@ -1,7 +1,7 @@
 import torch
 import numpy as np
 
-print(f'PyTorch ver: {torch.__version__}')
+#print(f'PyTorch ver: {torch.__version__}')
 
 import torch.nn as nn
 import torch.nn.functional as F

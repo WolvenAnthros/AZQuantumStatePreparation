@@ -25,7 +25,7 @@ identity_matrix = np.identity(dimensions, dtype=np.complex128)  # identity
 v = f0 / pulse_time  # voltage
 c_c = theta / (f0 * np.sqrt(2 * omega_01 / (h * c1)))  # connection capacity
 amp = c_c * v * np.sqrt(h * omega_01 / (2 * c1))  # pulse amp
-print(f'Pulse amplitude: {amp:.3e}')
+#print(f'Pulse amplitude: {amp:.3e}')
 # hamiltonians
 H0 = np.array([[0, 0, 0], [0, h * omega_01, 0], [0, 0, h * omega_01 + h * mu]], dtype=np.complex128)
 eigenenergy, eigenpsi = np.linalg.eig(H0)
@@ -42,7 +42,7 @@ class U:
     zero_pulse = zero_enumerator @ zero_denominator
     pulse_counts = int(pulse_time / tstep)
     empty_counts = int((pulse_period - pulse_time) / tstep)
-    print(f'Pulse counts: {pulse_counts}, empty counts: {empty_counts}')
+    #print(f'Pulse counts: {pulse_counts}, empty counts: {empty_counts}')
 
     def __init__(self, pulse: int):
         Hr_pulse = pulse * 1j * amp * U.Hmatrix + H0
