@@ -19,7 +19,9 @@ def selfPlay(game, params, queue, proc_num):
         player = 1
         state = game.get_initial_state()
         model = queue.get(timeout=0.1)
-        print('PASSED MODEL:',model.state_dict()['startBlock.0.weight'][0][0])
+        #print('PASSED MODEL CPU:',model.state_dict()['startBlock.0.weight'][0][0])
+        model.to(torch.device('cuda'))
+        #print('PASSED MODEL CUDA:', model.state_dict()['startBlock.0.weight'][0][0])
         mcts = MCTS.MCTS_Play(game=game, model=model, args=params)
         del model
         while True:
@@ -124,7 +126,7 @@ if __name__ == "__main__":
         # print(neural_net.state_dict()['startBlock.0.weight'][0][0])
         # print('\033[92m //////////////////////////////////////////////////////// \033[0m')
 
-
+        neural_net.to(torch.device('cpu'))
         for num in range(params['num_parallel_games']):
             queue.put(neural_net)
             proc = mp.Process(target=selfPlay, args=(game, params, queue, num))
@@ -143,9 +145,9 @@ if __name__ == "__main__":
                 break
 
         # memory += selfPlay(mcts,game,params,queue)
-
+        neural_net.to(torch.device('cuda'))
         neural_net.train()
-        print('State dict after mp:', neural_net.state_dict()['startBlock.0.weight'][0][0])
+        #print('State dict after mp:', neural_net.state_dict()['startBlock.0.weight'][0][0])
         for epoch in trange(params['num_epochs']):
             train(memory, neural_net=neural_net)
         #
