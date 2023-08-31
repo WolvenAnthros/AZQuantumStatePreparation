@@ -13,11 +13,15 @@ from TicTacToe import TicTacToe
 from Model_TicTacToe import ResNet
 
 
-def selfPlay(mcts, game, params, queue, proc_num):
+def selfPlay(game, params, queue, proc_num):
     for _ in range(10):
         memory = []
         player = 1
         state = game.get_initial_state()
+        model = queue.get(timeout=0.1)
+        print('PASSED MODEL:',model.state_dict()['startBlock.0.weight'][0][0])
+        mcts = MCTS.MCTS_Play(game=game, model=model, args=params)
+        del model
         while True:
             neutral_state = game.change_perspective(state, player)
             action_probs = mcts.search(neutral_state, proc_num)
@@ -89,7 +93,7 @@ if __name__ == "__main__":
         'num_searches': 100,  # 00
         'num_iterations': 8,
         'num_self_plays': 10,  # 00
-        'num_parallel_games': 2,  # number of cores taken by the computation!
+        'num_parallel_games': 3,  # number of cores taken by the computation!
         'num_epochs': 4,  # 4
         'batch_size': 128,
         'temperature': 1,
@@ -106,7 +110,8 @@ if __name__ == "__main__":
 
     queue = mp.Queue()
 
-    mcts = MCTS.MCTS_Play(game=game, model=neural_net, args=params)
+
+
 
     for iteration in trange(params['num_iterations']):
         memory = []
@@ -114,11 +119,15 @@ if __name__ == "__main__":
 
         neural_net.eval()
         processes = []
-        print('\033[92m //////////////////////////////////////////////////////// \033[0m')
-        print(neural_net.state_dict()['startBlock.0.weight'][0][0])
-        print('\033[92m //////////////////////////////////////////////////////// \033[0m')
+
+        # print('\033[92m //////////////////////////////////////////////////////// \033[0m')
+        # print(neural_net.state_dict()['startBlock.0.weight'][0][0])
+        # print('\033[92m //////////////////////////////////////////////////////// \033[0m')
+
+
         for num in range(params['num_parallel_games']):
-            proc = mp.Process(target=selfPlay, args=(mcts, game, params, queue, num))
+            queue.put(neural_net)
+            proc = mp.Process(target=selfPlay, args=(game, params, queue, num))
             # print(f'\033[92m Proc {num} started \033[0m')
             processes.append(proc)
             proc.start()
@@ -129,15 +138,14 @@ if __name__ == "__main__":
 
         while True:  # seems to be enough to complete your loops, but it's just a demo condition, you should not use this
             try:
-                memory += [queue.get(timeout=1)]
+                memory += queue.get(timeout=0.2)
             except Exception as expt:  # the output_queue.get(timeout=1) will wait up to 1 second if the queue is momentarily empty. If the queue is empty for more than 1 sec, it raises an exception and it means the loop is complete. Again, this is not a good condition in real life, and this is just for testing.
                 break
 
         # memory += selfPlay(mcts,game,params,queue)
 
         neural_net.train()
-        print(f'State dict after mp: {neural_net.state_dict()}')
-        memory = memory[0]
+        print('State dict after mp:', neural_net.state_dict()['startBlock.0.weight'][0][0])
         for epoch in trange(params['num_epochs']):
             train(memory, neural_net=neural_net)
         #
