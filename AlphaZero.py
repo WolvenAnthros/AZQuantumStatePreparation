@@ -119,15 +119,15 @@ class AlphaZero():
 
             num_processes = self.args['num_parallel_games']
 
-            # with tqdm.tqdm(total=num_processes) as progress_bar:
-            #     with Pool(max_workers=num_processes) as executor:
-            #         results = [executor.submit(self.selfPlay) for i in range(num_processes)]
-            #         for f in concurrent.futures.as_completed(results):
-            #             memory += f.result()
-            #             progress_bar.update(1)
+            with tqdm.tqdm(total=num_processes) as progress_bar:
+                with Pool(max_workers=num_processes) as executor:
+                    results = [executor.submit(self.selfPlay) for i in range(num_processes)]
+                    for f in concurrent.futures.as_completed(results):
+                        memory += f.result()
+                        progress_bar.update(1)
 
-            for _ in trange(num_processes):
-                memory += self.selfPlay()
+            # for _ in trange(num_processes):
+            #     memory += self.selfPlay()
 
             self.model.train()
 
@@ -154,11 +154,11 @@ class SPG:
 if __name__ == '__main__':
     tictactoe = TicTacToe()
 
-    device = torch.device('cuda')  # 'cuda' if torch.cuda.is_available() else
+    device = torch.device('cpu')  # 'cuda' if torch.cuda.is_available() else
     print(f'Selected device: {device}')
     model = ResNet(tictactoe, 4, 64, device)
     #model.share_memory()
-    optimizer = torch.optim.Adam(model.parameters(), lr=2e-5, weight_decay=5e-4)
+    optimizer = torch.optim.Adam(model.parameters(), lr=2e-4, weight_decay=5e-4)
     args = {
         'C': 2,
         'num_searches': 100,  # 00

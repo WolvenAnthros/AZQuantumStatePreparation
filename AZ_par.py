@@ -14,7 +14,7 @@ from Model_TicTacToe import ResNet
 
 
 def selfPlay(game, params, queue, proc_num):
-    for _ in range(10):
+    for _ in range(100):
         memory = []
         player = 1
         state = game.get_initial_state()
@@ -92,11 +92,11 @@ if __name__ == "__main__":
     game = TicTacToe()
     params = {
         'C': 2,
-        'num_searches': 100,  # 00
-        'num_iterations': 8,
-        'num_self_plays': 10,  # 00
+        'num_searches': 1000,  # 00
+        'num_iterations': 10,
+        'num_self_plays': 100,  # 00
         'num_parallel_games': 3,  # number of cores taken by the computation!
-        'num_epochs': 4,  # 4
+        'num_epochs': 8,  # 4
         'batch_size': 128,
         'temperature': 1,
         'dirichlet_epsilon': 0.25,
@@ -106,7 +106,7 @@ if __name__ == "__main__":
     device = torch.device('cuda')  # 'cuda' if torch.cuda.is_available() else
     print(f'Selected device: {device}')
     neural_net = ResNet(game, 4, 64, device)
-    optimizer = torch.optim.Adam(neural_net.parameters(), lr=2e-4, weight_decay=5e-4)
+    optimizer = torch.optim.Adam(neural_net.parameters(), lr=0.001, weight_decay=5e-4)
 
     neural_net.share_memory()
 
@@ -151,5 +151,5 @@ if __name__ == "__main__":
         for epoch in trange(params['num_epochs']):
             train(memory, neural_net=neural_net)
         #
-        # torch.save(neural_net.state_dict(), f"models/model_{iteration}.pt")
-        # torch.save(optimizer.state_dict(), f"models/optimizer_{iteration}.pt")
+        torch.save(neural_net.state_dict(), f"models/model_{iteration}.pt")
+        torch.save(optimizer.state_dict(), f"models/optimizer_{iteration}.pt")
