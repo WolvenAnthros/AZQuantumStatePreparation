@@ -28,24 +28,25 @@ class SFQ:
         true_action = action % polarities_num
         state_copy = state.copy()
         state_copy[index] = true_action - 1  # if action=0 -> 0-1 = -1 -> actual action
-
-        reward = reward_calculation(pulse_list=state_copy)
-        reward = 1 - ((1 - reward) / 1) ** 0.5
-        reward = round(reward, 4)
-
         return state_copy
 
     def get_valid_moves(self, state):
-        #allowed_pulses =  (state.reshape(-1) == unexplored_pulse).astype(np.uint8)  # element-wise comparison
         allowed_pulses = np.repeat(state, polarities_num)
-        allowed_pulses = np.array([1 if x==unexplored_pulse else 0 for x in allowed_pulses ])
-        actions_list = np.array([1 for x in range(max_sequence_length*polarities_num)])
+        allowed_pulses = np.array([1 if x == unexplored_pulse else 0 for x in allowed_pulses])
+        actions_list = np.array([1 for x in range(max_sequence_length * polarities_num)])
         return actions_list * allowed_pulses
+
+    def get_reward(self,state,action):
+        index = action // polarities_num
+        action = action % polarities_num
+        state_copy = state.copy()
+        state_copy[index] = action - 1  # if action=0 -> 0-1 = -1 -> actual action
+        return reward_calculation(state_copy)
 
     def get_value_and_terminated(self, state, action):
         if np.sum(self.get_valid_moves(state)) == 0:
-            return reward_calculation(pulse_list=state), True
-        return 0, False # FIXME: maybe we should return ordinary reward value?
+            return self.get_reward(state, action), True
+        return self.get_reward(state,action), False  # FIXME: maybe we should return ordinary reward value?
 
     def get_opponent(self, player):
         return player
@@ -58,7 +59,7 @@ class SFQ:
 
     def get_encoded_state(self, state):
         encoded_state = np.stack(
-            (state == -1, state == 0, state == 1, state==unexplored_pulse)
+            (state == -1, state == 0, state == 1, state == unexplored_pulse)
         ).astype(np.float32)
 
         if len(state.shape) == 2:  # from matrix to tensor

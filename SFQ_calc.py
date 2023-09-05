@@ -173,3 +173,4 @@ if __name__ == "__main__":
     #         trunc = i
     #         reward = temp_reward
     # print(f'Fidelity: {reward:.3g}, Infidelity: {1 - reward:.2e}, truncate {trunc} symbols for the best result')
+    print(reward_calculation(pulse_list))

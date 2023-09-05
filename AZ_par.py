@@ -3,34 +3,37 @@ import torch
 import numpy as np
 import torch.multiprocessing as mp
 from torch.utils.tensorboard import SummaryWriter
-
 import torch.nn.functional as F
 import tqdm
 
 import MCTS
 from tqdm import trange
 from TicTacToe import TicTacToe
-from Model_TicTacToe import ResNet
+
+from SFQ_sequence import SFQ
+
+#from Model_TicTacToe import ResNet
+from Model import ResNet
 
 
 def selfPlay(game, params, queue, proc_num):
-    for _ in range(100):
+    for _ in range(params['num_self_plays']):
         memory = []
         player = 1
         state = game.get_initial_state()
-        model = queue.get(timeout=0.1)
-        #print('PASSED MODEL CPU:',model.state_dict()['startBlock.0.weight'][0][0])
+        model = queue.get(timeout=2)
+        # print('PASSED MODEL CPU:',model.state_dict()['startBlock.0.weight'][0][0])
         model.to(torch.device('cuda'))
-        #print('PASSED MODEL CUDA:', model.state_dict()['startBlock.0.weight'][0][0])
+        # print('PASSED MODEL CUDA:', model.state_dict()['startBlock.0.weight'][0][0])
         mcts = MCTS.MCTS_Play(game=game, model=model, args=params)
         del model
         while True:
             neutral_state = game.change_perspective(state, player)
             action_probs = mcts.search(neutral_state, proc_num)
-
             memory.append((neutral_state, action_probs, player))
 
             temperature_action_probs = action_probs ** (1 / params['temperature'])
+            # temperature_action_probs /= np.sum(temperature_action_probs)
             action = np.random.choice(game.action_size,
                                       p=temperature_action_probs)  # Divide temperature_action_probs with its sum in case of an error
 
@@ -75,10 +78,11 @@ def train(memory, neural_net):
         policy_loss = F.cross_entropy(out_policy, policy_targets)
         value_loss = F.mse_loss(out_value, value_targets)
         loss = policy_loss + value_loss
-        print(f'Loss: {loss:.2f}, policy loss: {policy_loss:.2f}, value loss: {value_loss:.2f}')
+
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
+    return policy_loss, value_loss, loss
 
 
 # class Manager(BaseManager):
@@ -89,13 +93,13 @@ def train(memory, neural_net):
 # Manager.register('ResNet',ResNet)
 
 if __name__ == "__main__":
-    game = TicTacToe()
+    game = SFQ()
     params = {
         'C': 2,
-        'num_searches': 1000,  # 00
+        'num_searches': 100,  # 00
         'num_iterations': 10,
-        'num_self_plays': 100,  # 00
-        'num_parallel_games': 3,  # number of cores taken by the computation!
+        'num_self_plays': 50,  # 00
+        'num_parallel_games': 4,  # number of cores taken by the computation!
         'num_epochs': 8,  # 4
         'batch_size': 128,
         'temperature': 1,
@@ -110,21 +114,14 @@ if __name__ == "__main__":
 
     neural_net.share_memory()
 
-    queue = mp.Queue()
-
-
-
-
+    manager = mp.Manager()
+    queue = manager.Queue()
+    writer = SummaryWriter()
     for iteration in trange(params['num_iterations']):
         memory = []
-        #
 
         neural_net.eval()
         processes = []
-
-        # print('\033[92m //////////////////////////////////////////////////////// \033[0m')
-        # print(neural_net.state_dict()['startBlock.0.weight'][0][0])
-        # print('\033[92m //////////////////////////////////////////////////////// \033[0m')
 
         neural_net.to(torch.device('cpu'))
         for num in range(params['num_parallel_games']):
@@ -140,16 +137,21 @@ if __name__ == "__main__":
 
         while True:  # seems to be enough to complete your loops, but it's just a demo condition, you should not use this
             try:
-                memory += queue.get(timeout=0.2)
+                memory += queue.get(timeout=2)
             except Exception as expt:  # the output_queue.get(timeout=1) will wait up to 1 second if the queue is momentarily empty. If the queue is empty for more than 1 sec, it raises an exception and it means the loop is complete. Again, this is not a good condition in real life, and this is just for testing.
                 break
 
         # memory += selfPlay(mcts,game,params,queue)
         neural_net.to(torch.device('cuda'))
         neural_net.train()
-        #print('State dict after mp:', neural_net.state_dict()['startBlock.0.weight'][0][0])
+        # print('State dict after mp:', neural_net.state_dict()['startBlock.0.weight'][0][0])
         for epoch in trange(params['num_epochs']):
-            train(memory, neural_net=neural_net)
-        #
-        torch.save(neural_net.state_dict(), f"models/model_{iteration}.pt")
-        torch.save(optimizer.state_dict(), f"models/optimizer_{iteration}.pt")
+            policy_loss, value_loss, loss = train(memory, neural_net=neural_net)
+
+        print(f'Loss: {loss:.2f}, policy loss: {policy_loss:.2f}, value loss: {value_loss:.2f}')
+        writer.add_scalar('Total loss', loss, iteration)
+        writer.add_scalar('Policy loss', policy_loss, iteration)
+        writer.add_scalar('Value loss', value_loss, iteration)
+
+        torch.save(neural_net.state_dict(), f"models/SFQ_{iteration}.pt")
+        #torch.save(optimizer.state_dict(), f"models/TTTopt_{iteration}.pt")
