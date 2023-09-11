@@ -33,7 +33,7 @@ def selfPlay(game, params, queue, proc_num):
             memory.append((neutral_state, action_probs, player))
 
             temperature_action_probs = action_probs ** (1 / params['temperature'])
-            # temperature_action_probs /= np.sum(temperature_action_probs)
+            temperature_action_probs /= np.sum(temperature_action_probs)
             action = np.random.choice(game.action_size,
                                       p=temperature_action_probs)  # Divide temperature_action_probs with its sum in case of an error
 
@@ -96,13 +96,13 @@ if __name__ == "__main__":
     game = SFQ()
     params = {
         'C': 2,
-        'num_searches': 100,  # 00
+        'num_searches': 1000,  # 00
         'num_iterations': 10,
         'num_self_plays': 50,  # 00
         'num_parallel_games': 4,  # number of cores taken by the computation!
         'num_epochs': 8,  # 4
         'batch_size': 128,
-        'temperature': 1,
+        'temperature': 1.25,
         'dirichlet_epsilon': 0.25,
         'dirichlet_alpha': 0.3
     }
@@ -110,6 +110,7 @@ if __name__ == "__main__":
     device = torch.device('cuda')  # 'cuda' if torch.cuda.is_available() else
     print(f'Selected device: {device}')
     neural_net = ResNet(game, 4, 64, device)
+    neural_net.load_state_dict(torch.load('models/SFQ_19.pt'))
     optimizer = torch.optim.Adam(neural_net.parameters(), lr=0.001, weight_decay=5e-4)
 
     neural_net.share_memory()
@@ -153,5 +154,5 @@ if __name__ == "__main__":
         writer.add_scalar('Policy loss', policy_loss, iteration)
         writer.add_scalar('Value loss', value_loss, iteration)
 
-        torch.save(neural_net.state_dict(), f"models/SFQ_{iteration}.pt")
+        torch.save(neural_net.state_dict(), f"models/SFQ_new_{iteration}.pt")
         #torch.save(optimizer.state_dict(), f"models/TTTopt_{iteration}.pt")

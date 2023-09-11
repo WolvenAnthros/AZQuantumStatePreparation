@@ -3,9 +3,10 @@ import numpy as np
 import torch
 
 from SFQ_sequence import SFQ
-#from Model_TicTacToe import ResNet
+# from Model_TicTacToe import ResNet
 from Model import ResNet
 import tqdm
+
 
 class Node:
     def __init__(self, game, args, state, parent=None, action_taken=None, prior=0, visit_count=0):
@@ -42,7 +43,7 @@ class Node:
         if child.visit_count == 0:
             q_value = 0
         else:
-            q_value =   child.value_sum / child.visit_count  # +1 / 2 bc values can only be +1 and -1 child.value_sum / child.visit_count
+            q_value = child.value_sum / child.visit_count  # +1 / 2 bc values can only be +1 and -1 child.value_sum / child.visit_count
         # 1 - because players are changed every turn
         return q_value + self.args['C'] * np.sqrt(self.visit_count / (child.visit_count + 1)) * child.prior
 
@@ -141,7 +142,6 @@ class MCTS:
                     node.backpropagate(spg_value)
 
 
-
 class MCTS_Play:
     def __init__(self, game, args, model):
         self.game = game
@@ -176,13 +176,13 @@ class MCTS_Play:
                     policy, value = self.model(
                         torch.tensor(self.game.get_encoded_state(node.state), device=self.model.device).unsqueeze(0)
                     )
-                    #print(f'search_policy_1: {policy}')
+                    # print(f'search_policy_1: {policy}')
                     policy = torch.softmax(policy, dim=1).squeeze(0).cpu().numpy()
-                    #print(f'search_policy_softmax: {policy}')
+                    # print(f'search_policy_softmax: {policy}')
                     valid_moves = self.game.get_valid_moves(node.state)
                     policy *= valid_moves
                     policy /= np.sum(policy)
-                    #print(f'search_policy_end: {policy}')
+                    # print(f'search_policy_end: {policy}')
 
                     value = value.item()
 
@@ -221,38 +221,45 @@ if __name__ == '__main__':
     model.eval()
     model = model.to(device)
     mcts = MCTS_Play(tictactoe, args, model)
-    state = tictactoe.get_initial_state()
+    # state = tictactoe.get_initial_state()
 
     # while True:
-        # print(state)
-        #
-        # if player == 1:
-        #     valid_moves = tictactoe.get_valid_moves(state)
-        #     print(f'valid moves: {[i for i in range(tictactoe.action_size) if valid_moves[i] == 1]}')
-        #     action = int(input(f'{player}: '))
-        #
-        #     # check if the action is valid
-        #     if valid_moves[action] == 0:
-        #         print('action not valid')
-        #         continue
-        # else:
-        #     neutral_state = tictactoe.change_perspective(state, player)
-        #     mcts_probs = mcts.search(neutral_state,None)
-        #     action = np.argmax(mcts_probs)
-        #
-        # state = tictactoe.get_next_state(state, action, player)
-        #
-        # value, is_terminal = tictactoe.get_value_and_terminated(state, action)
-        #
-        # if is_terminal:
-        #     print(state)
-        #     if value == 1:
-        #         print(player, "won")
-        #     else:
-        #         print("draw")
-        #     break
-        #
-        # player = tictactoe.get_opponent(player)
+    # print(state)
+    #
+    # if player == 1:
+    #     valid_moves = tictactoe.get_valid_moves(state)
+    #     print(f'valid moves: {[i for i in range(tictactoe.action_size) if valid_moves[i] == 1]}')
+    #     action = int(input(f'{player}: '))
+    #
+    #     # check if the action is valid
+    #     if valid_moves[action] == 0:
+    #         print('action not valid')
+    #         continue
+    # else:
+    #     neutral_state = tictactoe.change_perspective(state, player)
+    #     mcts_probs = mcts.search(neutral_state,None)
+    #     action = np.argmax(mcts_probs)
+    #
+    # state = tictactoe.get_next_state(state, action, player)
+    #
+    # value, is_terminal = tictactoe.get_value_and_terminated(state, action)
+    #
+    # if is_terminal:
+    #     print(state)
+    #     if value == 1:
+    #         print(player, "won")
+    #     else:
+    #         print("draw")
+    #     break
+    #
+    # player = tictactoe.get_opponent(player)
+    pulse_str = '1110-1-1-1-11110-1-1-1-11100-1-1-1111110-1-111111-1-1-1-11111-1-1-101111-1-1-1-1-11111-1-1-1-10111-1-10-10111-1-1-1-1-111111-1-1-111-110-1-1-1-1011-1-1-10111110-1011111-1-1-1-111'
+    pulse_str = pulse_str.replace('1', '1,')
+    pulse_str = pulse_str.replace('0', '0,')
+    pulse_list = pulse_str.split(',')
+    pulse_list.pop(-1)
+    pulse_list = [int(pulse) for pulse in pulse_list]
+    state = np.array(pulse_list)
     print(state)
     with tqdm.tqdm(total=125) as bar:
         while True:
@@ -266,15 +273,15 @@ if __name__ == '__main__':
             policy *= valid_moves
             policy /= np.sum(policy)
             # action = np.argmax(mcts_probs)
-            action = np.random.choice(tictactoe.action_size,p=policy)
-            bar.update(1)
-            state = tictactoe.get_next_state(state, action, player)
-
+            action = np.random.choice(tictactoe.action_size, p=policy)
             value, is_terminal = tictactoe.get_value_and_terminated(state, action)
-
             if is_terminal:
                 print(state)
                 print(f'Fidelity: {value}')
                 break
+
+            bar.update(1)
+            state = tictactoe.get_next_state(state, action, player)
+
 
             player = tictactoe.get_opponent(player)

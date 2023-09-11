@@ -148,6 +148,7 @@ def wait_calculation(num_timesteps, _u_matrix, ):
 
 if __name__ == "__main__":
     pulse_str = config['example_scallop']
+    pulse_str = '1110-1-1-1-11110-1-1-1-11100-1-1-1111110-1-111111-1-1-1-11111-1-1-101111-1-1-1-1-11111-1-1-1-10111-1-10-10111-1-1-1-1-111111-1-1-111-110-1-1-1-1011-1-1-10111110-1011111-1-1-1-111'
     pulse_str = pulse_str.replace('1', '1,')
     pulse_str = pulse_str.replace('0', '0,')
     pulse_list = pulse_str.split(',')

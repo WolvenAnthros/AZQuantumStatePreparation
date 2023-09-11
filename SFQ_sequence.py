@@ -45,8 +45,8 @@ class SFQ:
 
     def get_value_and_terminated(self, state, action):
         if np.sum(self.get_valid_moves(state)) == 0:
-            return self.get_reward(state, action), True
-        return self.get_reward(state,action), False  # FIXME: maybe we should return ordinary reward value?
+            return reward_calculation(state), True
+        return 0, False  # FIXME: maybe we should return ordinary reward value?
 
     def get_opponent(self, player):
         return player
