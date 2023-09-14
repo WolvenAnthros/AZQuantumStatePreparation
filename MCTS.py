@@ -217,11 +217,11 @@ if __name__ == '__main__':
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     model = ResNet(tictactoe, 4, 64, device=torch.device('cuda'))
-    model.load_state_dict(torch.load('models/SFQ_19.pt'))
+    model.load_state_dict(torch.load('models/garbage_new_9.pt'))
     model.eval()
     model = model.to(device)
     mcts = MCTS_Play(tictactoe, args, model)
-    # state = tictactoe.get_initial_state()
+    state = tictactoe.get_initial_state()
 
     # while True:
     # print(state)
@@ -253,13 +253,14 @@ if __name__ == '__main__':
     #     break
     #
     # player = tictactoe.get_opponent(player)
-    pulse_str = '1110-1-1-1-11110-1-1-1-11100-1-1-1111110-1-111111-1-1-1-11111-1-1-101111-1-1-1-1-11111-1-1-1-10111-1-10-10111-1-1-1-1-111111-1-1-111-110-1-1-1-1011-1-1-10111110-1011111-1-1-1-111'
-    pulse_str = pulse_str.replace('1', '1,')
-    pulse_str = pulse_str.replace('0', '0,')
-    pulse_list = pulse_str.split(',')
-    pulse_list.pop(-1)
-    pulse_list = [int(pulse) for pulse in pulse_list]
-    state = np.array(pulse_list)
+
+    # pulse_str = '1110-1-1-1-11110-1-1-1-11100-1-1-1111110-1-111111-1-1-1-11111-1-1-101111-1-1-1-1-11111-1-1-1-10111-1-10-10111-1-1-1-1-111111-1-1-111-110-1-1-1-1011-1-1-10111110-1011111-1-1-1-111'
+    # pulse_str = pulse_str.replace('1', '1,')
+    # pulse_str = pulse_str.replace('0', '0,')
+    # pulse_list = pulse_str.split(',')
+    # pulse_list.pop(-1)
+    # pulse_list = [int(pulse) for pulse in pulse_list]
+    # state = np.array(pulse_list)
     print(state)
     with tqdm.tqdm(total=125) as bar:
         while True:
@@ -267,21 +268,23 @@ if __name__ == '__main__':
             state_encoded = tictactoe.get_encoded_state(state)
             state_encoded = torch.tensor(state_encoded, dtype=torch.float32, device=model.device).unsqueeze(0)
             policy, predicted_value = model(state_encoded)
-            print(f'pred:{predicted_value}')
+
             policy = torch.softmax(policy, dim=1).squeeze(0).cpu().detach().numpy()
             valid_moves = tictactoe.get_valid_moves(state)
             policy *= valid_moves
             policy /= np.sum(policy)
             # action = np.argmax(mcts_probs)
             action = np.random.choice(tictactoe.action_size, p=policy)
+
+            bar.update(1)
+            state = tictactoe.get_next_state(state, action, player)
+
             value, is_terminal = tictactoe.get_value_and_terminated(state, action)
+
             if is_terminal:
                 print(state)
                 print(f'Fidelity: {value}')
                 break
 
-            bar.update(1)
-            state = tictactoe.get_next_state(state, action, player)
-
-
             player = tictactoe.get_opponent(player)
+    print(f'pred:{predicted_value}')

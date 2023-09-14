@@ -13,8 +13,8 @@ import MCTS
 from tqdm import trange
 from TicTacToe import TicTacToe
 from SFQ_sequence import SFQ
-# from Model import ResNet
-from Model_TicTacToe import ResNet
+from Model import ResNet
+#from Model_TicTacToe import ResNet
 
 writer = SummaryWriter()
 
@@ -78,7 +78,7 @@ class AlphaZero():
 
         mean_policy_loss, mean_val_loss, mean_loss = 0, 0, 0
         loss_index = 0
-
+        max_value = 0
         random.shuffle(memory)
         for batch_idx in range(0, len(memory), self.args['batch_size']):
             sample = memory[batch_idx:min(len(memory) - 1,
@@ -88,6 +88,10 @@ class AlphaZero():
 
             state, policy_targets, value_targets = np.array(state), np.array(policy_targets), np.array(
                 value_targets).reshape(-1, 1)
+
+            if value_targets[0][0] > max_value:
+                max_value = value_targets[0][0]
+                print(f'max fidelity: {max_value}')
 
             state = torch.tensor(state, dtype=torch.float32, device=self.model.device)
             policy_targets = torch.tensor(policy_targets, dtype=torch.float32, device=self.model.device)
@@ -119,15 +123,15 @@ class AlphaZero():
 
             num_processes = self.args['num_parallel_games']
 
-            with tqdm.tqdm(total=num_processes) as progress_bar:
-                with Pool(max_workers=num_processes) as executor:
-                    results = [executor.submit(self.selfPlay) for i in range(num_processes)]
-                    for f in concurrent.futures.as_completed(results):
-                        memory += f.result()
-                        progress_bar.update(1)
+            # with tqdm.tqdm(total=num_processes) as progress_bar:
+            #     with Pool(max_workers=num_processes) as executor:
+            #         results = [executor.submit(self.selfPlay) for i in range(num_processes)]
+            #         for f in concurrent.futures.as_completed(results):
+            #             memory += f.result()
+            #             progress_bar.update(1)
 
-            # for _ in trange(num_processes):
-            #     memory += self.selfPlay()
+            for _ in trange(num_processes):
+                memory += self.selfPlay()
 
             self.model.train()
 
@@ -138,8 +142,8 @@ class AlphaZero():
                 writer.add_scalar('Value loss', value_loss, iteration + epoch)
                 writer.add_scalar('Total loss', loss, iteration + epoch)
 
-            torch.save(self.model.state_dict(), f"models/model_{iteration}.pt")
-            torch.save(self.optimizer.state_dict(), f"models/optimizer_{iteration}.pt")
+            torch.save(self.model.state_dict(), f"models/modelAZ_{iteration}.pt")
+            #torch.save(self.optimizer.state_dict(), f"models/optimizer_{iteration}.pt")
 
 
 # parallel information storage
@@ -152,20 +156,20 @@ class SPG:
 
 
 if __name__ == '__main__':
-    tictactoe = TicTacToe()
+    tictactoe = SFQ()
 
-    device = torch.device('cpu')  # 'cuda' if torch.cuda.is_available() else
+    device = torch.device('cuda')  # 'cuda' if torch.cuda.is_available() else
     print(f'Selected device: {device}')
     model = ResNet(tictactoe, 4, 64, device)
     #model.share_memory()
     optimizer = torch.optim.Adam(model.parameters(), lr=2e-4, weight_decay=5e-4)
     args = {
         'C': 2,
-        'num_searches': 100,  # 00
+        'num_searches': 10,  # 00
         'num_iterations': 8,
-        'num_self_plays': 50,  # 00
+        'num_self_plays': 5,  # 00
         'num_parallel_games': 3,  # number of cores taken by the computation!
-        'num_epochs': 4,  # 4
+        'num_epochs': 8,  # 4
         'batch_size': 128,
         'temperature': 1,
         'dirichlet_epsilon': 0.25,

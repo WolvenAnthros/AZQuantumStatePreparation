@@ -73,15 +73,18 @@ def train(memory, neural_net):
         policy_targets = torch.tensor(policy_targets, dtype=torch.float32, device=neural_net.device)
         value_targets = torch.tensor(value_targets, dtype=torch.float32, device=neural_net.device)
 
+
+
         out_policy, out_value = neural_net(state)
 
         policy_loss = F.cross_entropy(out_policy, policy_targets)
-        value_loss = F.mse_loss(out_value, value_targets)
+        value_loss = F.mse_loss(out_value, value_targets, reduction='sum')
         loss = policy_loss + value_loss
 
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
+    print(f'max fidelity: {max(value_targets)}')
     return policy_loss, value_loss, loss
 
 
@@ -96,13 +99,13 @@ if __name__ == "__main__":
     game = SFQ()
     params = {
         'C': 2,
-        'num_searches': 1000,  # 00
+        'num_searches': 1000,
         'num_iterations': 10,
-        'num_self_plays': 50,  # 00
-        'num_parallel_games': 4,  # number of cores taken by the computation!
-        'num_epochs': 8,  # 4
+        'num_self_plays': 200,
+        'num_parallel_games': 50,
+        'num_epochs': 8,
         'batch_size': 128,
-        'temperature': 1.25,
+        'temperature': 1.5,
         'dirichlet_epsilon': 0.25,
         'dirichlet_alpha': 0.3
     }
@@ -110,7 +113,7 @@ if __name__ == "__main__":
     device = torch.device('cuda')  # 'cuda' if torch.cuda.is_available() else
     print(f'Selected device: {device}')
     neural_net = ResNet(game, 4, 64, device)
-    neural_net.load_state_dict(torch.load('models/SFQ_19.pt'))
+    #neural_net.load_state_dict(torch.load('models/SFQ_19.pt'))
     optimizer = torch.optim.Adam(neural_net.parameters(), lr=0.001, weight_decay=5e-4)
 
     neural_net.share_memory()
@@ -154,5 +157,5 @@ if __name__ == "__main__":
         writer.add_scalar('Policy loss', policy_loss, iteration)
         writer.add_scalar('Value loss', value_loss, iteration)
 
-        torch.save(neural_net.state_dict(), f"models/SFQ_new_{iteration}.pt")
+        torch.save(neural_net.state_dict(), f"models/garbage_new_{iteration}.pt")
         #torch.save(optimizer.state_dict(), f"models/TTTopt_{iteration}.pt")
