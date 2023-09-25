@@ -4,6 +4,7 @@ import torch
 import numpy as np
 from torch.utils.tensorboard import SummaryWriter
 import torch.nn.functional as F
+import torch.optim.lr_scheduler as lr_scheduler
 import tqdm
 from concurrent.futures import ProcessPoolExecutor as Pool
 import concurrent.futures
@@ -24,6 +25,7 @@ class AlphaZero():
         self.args = params
         self.game = game
         self.optimizer = optimizer
+        self.scheduler = lr_scheduler.ExponentialLR(self.optimizer,gamma=0.9,verbose=True)
         self.model = model
         self.mcts = mcts  # MCTS.MCTS(game, params, model)
 
@@ -91,7 +93,7 @@ class AlphaZero():
 
             if value_targets[0][0] > max_value:
                 max_value = value_targets[0][0]
-                print(f'max fidelity: {max_value}')
+
 
             state = torch.tensor(state, dtype=torch.float32, device=self.model.device)
             policy_targets = torch.tensor(policy_targets, dtype=torch.float32, device=self.model.device)
@@ -100,9 +102,9 @@ class AlphaZero():
             # predict the state
             out_policy, out_value = self.model(state)
             policy_loss = F.cross_entropy(out_policy, policy_targets)
-            value_loss = F.mse_loss(out_value, value_targets)
+            value_loss = F.mse_loss(out_value, value_targets, reduction='sum')
             loss = policy_loss + value_loss
-            print(f'Loss: {loss:.2f}, policy loss: {policy_loss:.2f}, value loss: {value_loss:.2f}')
+
             mean_policy_loss += policy_loss
             mean_val_loss += value_loss
             mean_loss += loss
@@ -112,7 +114,7 @@ class AlphaZero():
             loss.backward()
             self.optimizer.step()
 
-        return mean_policy_loss / loss_index, mean_val_loss / loss_index, mean_loss / loss_index
+        return mean_policy_loss / loss_index, mean_val_loss / loss_index, mean_loss / loss_index, max_value
 
     def learn(self):
         for iteration in range(self.args['num_iterations']):
@@ -136,11 +138,15 @@ class AlphaZero():
             self.model.train()
 
             for epoch in trange(self.args['num_epochs']):
-                policy_loss, value_loss, loss = self.train(memory)
+                policy_loss, value_loss, loss, max_value = self.train(memory)
+            print(f'Loss: {loss:.2f}, policy loss: {policy_loss:.2f}, value loss: {value_loss:.2f}')
+            print(f'max fidelity: {max_value:.3f}')
 
-                writer.add_scalar('Policy loss', policy_loss, iteration + epoch)
-                writer.add_scalar('Value loss', value_loss, iteration + epoch)
-                writer.add_scalar('Total loss', loss, iteration + epoch)
+            self.scheduler.step()
+
+            writer.add_scalar('Policy loss', policy_loss, iteration)
+            writer.add_scalar('Value loss', value_loss, iteration)
+            writer.add_scalar('Total loss', loss, iteration)
 
             torch.save(self.model.state_dict(), f"models/modelAZ_{iteration}.pt")
             #torch.save(self.optimizer.state_dict(), f"models/optimizer_{iteration}.pt")
@@ -162,11 +168,11 @@ if __name__ == '__main__':
     print(f'Selected device: {device}')
     model = ResNet(tictactoe, 4, 64, device)
     #model.share_memory()
-    optimizer = torch.optim.Adam(model.parameters(), lr=2e-4, weight_decay=5e-4)
+    optimizer = torch.optim.Adam(model.parameters(), lr=6e-3, weight_decay=5e-4)
     args = {
         'C': 2,
         'num_searches': 10,  # 00
-        'num_iterations': 8,
+        'num_iterations': 15,
         'num_self_plays': 5,  # 00
         'num_parallel_games': 3,  # number of cores taken by the computation!
         'num_epochs': 8,  # 4

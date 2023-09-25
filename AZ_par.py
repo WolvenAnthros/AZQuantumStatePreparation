@@ -4,6 +4,7 @@ import numpy as np
 import torch.multiprocessing as mp
 from torch.utils.tensorboard import SummaryWriter
 import torch.nn.functional as F
+import torch.optim.lr_scheduler as lr_scheduler
 import tqdm
 
 import MCTS
@@ -84,8 +85,7 @@ def train(memory, neural_net):
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
-    print(f'max fidelity: {max(value_targets)}')
-    return policy_loss, value_loss, loss
+    return policy_loss, value_loss, loss, max(value_targets).squeeze(0).cpu().detach().numpy()
 
 
 # class Manager(BaseManager):
@@ -99,13 +99,13 @@ if __name__ == "__main__":
     game = SFQ()
     params = {
         'C': 2,
-        'num_searches': 1000,
-        'num_iterations': 10,
-        'num_self_plays': 200,
-        'num_parallel_games': 50,
-        'num_epochs': 8,
-        'batch_size': 128,
-        'temperature': 1.5,
+        'num_searches': 200,
+        'num_iterations': 20,
+        'num_self_plays': 3,
+        'num_parallel_games': 3,
+        'num_epochs': 4,
+        'batch_size': 125,
+        'temperature': 2,
         'dirichlet_epsilon': 0.25,
         'dirichlet_alpha': 0.3
     }
@@ -114,7 +114,8 @@ if __name__ == "__main__":
     print(f'Selected device: {device}')
     neural_net = ResNet(game, 4, 64, device)
     #neural_net.load_state_dict(torch.load('models/SFQ_19.pt'))
-    optimizer = torch.optim.Adam(neural_net.parameters(), lr=0.001, weight_decay=5e-4)
+    optimizer = torch.optim.Adam(neural_net.parameters(), lr=0.01, weight_decay=0.0001)
+    scheduler = lr_scheduler.ExponentialLR(optimizer,gamma=0.9,verbose=True)
 
     neural_net.share_memory()
 
@@ -150,12 +151,14 @@ if __name__ == "__main__":
         neural_net.train()
         # print('State dict after mp:', neural_net.state_dict()['startBlock.0.weight'][0][0])
         for epoch in trange(params['num_epochs']):
-            policy_loss, value_loss, loss = train(memory, neural_net=neural_net)
+            policy_loss, value_loss, loss, max_fidelity = train(memory, neural_net=neural_net)
+        scheduler.step()
 
-        print(f'Loss: {loss:.2f}, policy loss: {policy_loss:.2f}, value loss: {value_loss:.2f}')
+        print(f'Loss: {loss:.2f}, \n policy loss: {policy_loss:.2f},  \n value loss: {value_loss:.2f}, \n \033[36m max_fidelity:{max_fidelity:.3f} \033[0m')
         writer.add_scalar('Total loss', loss, iteration)
         writer.add_scalar('Policy loss', policy_loss, iteration)
         writer.add_scalar('Value loss', value_loss, iteration)
+        writer.add_scalar('Max encountered fidelity', max_fidelity, iteration)
 
         torch.save(neural_net.state_dict(), f"models/garbage_new_{iteration}.pt")
         #torch.save(optimizer.state_dict(), f"models/TTTopt_{iteration}.pt")
