@@ -98,11 +98,11 @@ def train(memory, neural_net):
 if __name__ == "__main__":
     game = SFQ()
     params = {
-        'C': 2,
-        'num_searches': 200,
+        'C': 1.5,
+        'num_searches': 80,
         'num_iterations': 20,
-        'num_self_plays': 3,
-        'num_parallel_games': 3,
+        'num_self_plays': 20,
+        'num_parallel_games': 4,
         'num_epochs': 4,
         'batch_size': 125,
         'temperature': 2,
@@ -114,8 +114,8 @@ if __name__ == "__main__":
     print(f'Selected device: {device}')
     neural_net = ResNet(game, 4, 64, device)
     #neural_net.load_state_dict(torch.load('models/SFQ_19.pt'))
-    optimizer = torch.optim.Adam(neural_net.parameters(), lr=0.01, weight_decay=0.0001)
-    scheduler = lr_scheduler.ExponentialLR(optimizer,gamma=0.9,verbose=True)
+    optimizer = torch.optim.Adam(neural_net.parameters(), lr=0.009, weight_decay=0.0001)
+    scheduler = lr_scheduler.ExponentialLR(optimizer,gamma=0.99,verbose=True)
 
     neural_net.share_memory()
 

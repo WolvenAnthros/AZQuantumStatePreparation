@@ -176,13 +176,11 @@ class MCTS_Play:
                     policy, value = self.model(
                         torch.tensor(self.game.get_encoded_state(node.state), device=self.model.device).unsqueeze(0)
                     )
-                    # print(f'search_policy_1: {policy}')
+
                     policy = torch.softmax(policy, dim=1).squeeze(0).cpu().numpy()
-                    # print(f'search_policy_softmax: {policy}')
                     valid_moves = self.game.get_valid_moves(node.state)
                     policy *= valid_moves
                     policy /= np.sum(policy)
-                    # print(f'search_policy_end: {policy}')
 
                     value = value.item()
 
@@ -217,7 +215,7 @@ if __name__ == '__main__':
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     model = ResNet(tictactoe, 4, 64, device=torch.device('cuda'))
-    model.load_state_dict(torch.load('models/garbage_new_8.pt'))
+    model.load_state_dict(torch.load('models/garbage_new_19.pt'))
     model.eval()
     model = model.to(device)
     mcts = MCTS_Play(tictactoe, args, model)
@@ -265,18 +263,18 @@ if __name__ == '__main__':
     with tqdm.tqdm(total=125) as bar:
         while True:
 
-            # state_encoded = tictactoe.get_encoded_state(state)
-            # state_encoded = torch.tensor(state_encoded, dtype=torch.float32, device=model.device).unsqueeze(0)
-            # policy, predicted_value = model(state_encoded)
-            #
-            # policy = torch.softmax(policy, dim=1).squeeze(0).cpu().detach().numpy()
-            # valid_moves = tictactoe.get_valid_moves(state)
-            # policy *= valid_moves
-            # policy /= np.sum(policy)
-            # action = np.random.choice(tictactoe.action_size, p=policy)
+            state_encoded = tictactoe.get_encoded_state(state)
+            state_encoded = torch.tensor(state_encoded, dtype=torch.float32, device=model.device).unsqueeze(0)
+            policy, predicted_value = model(state_encoded)
 
-            mcts_probs = mcts.search(state,None)
-            action = np.argmax(mcts_probs)
+            policy = torch.softmax(policy, dim=1).squeeze(0).cpu().detach().numpy()
+            valid_moves = tictactoe.get_valid_moves(state)
+            policy *= valid_moves
+            policy /= np.sum(policy)
+            action = np.random.choice(tictactoe.action_size, p=policy)
+
+            # mcts_probs = mcts.search(state,None)
+            # action = np.argmax(mcts_probs)
 
 
             bar.update(1)
@@ -290,4 +288,4 @@ if __name__ == '__main__':
                 break
 
             player = tictactoe.get_opponent(player)
-    #print(f'pred:{predicted_value}')
+    print(f'pred:{predicted_value}')
