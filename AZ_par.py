@@ -79,7 +79,7 @@ def train(memory, neural_net):
         out_policy, out_value = neural_net(state)
 
         policy_loss = F.cross_entropy(out_policy, policy_targets)
-        value_loss = F.mse_loss(out_value, value_targets, reduction='sum')
+        value_loss = F.mse_loss(out_value, value_targets) # , reduction='sum'
         loss = policy_loss + value_loss
 
         optimizer.zero_grad()
@@ -98,11 +98,11 @@ def train(memory, neural_net):
 if __name__ == "__main__":
     game = SFQ()
     params = {
-        'C': 1.5,
-        'num_searches': 80,
+        'C': 2,
+        'num_searches': 10,
         'num_iterations': 20,
-        'num_self_plays': 20,
-        'num_parallel_games': 4,
+        'num_self_plays': 2,
+        'num_parallel_games': 2,
         'num_epochs': 4,
         'batch_size': 125,
         'temperature': 2,
@@ -113,9 +113,9 @@ if __name__ == "__main__":
     device = torch.device('cuda')  # 'cuda' if torch.cuda.is_available() else
     print(f'Selected device: {device}')
     neural_net = ResNet(game, 4, 64, device)
-    #neural_net.load_state_dict(torch.load('models/SFQ_19.pt'))
-    optimizer = torch.optim.Adam(neural_net.parameters(), lr=0.009, weight_decay=0.0001)
-    scheduler = lr_scheduler.ExponentialLR(optimizer,gamma=0.99,verbose=True)
+    #neural_net.load_state_dict(torch.load('models/garbage_new_19.pt'))
+    optimizer = torch.optim.Adam(neural_net.parameters(), lr=1e-3, weight_decay=0.0001)
+    scheduler = lr_scheduler.ExponentialLR(optimizer,gamma=0.98,verbose=True)
 
     neural_net.share_memory()
 
@@ -160,5 +160,5 @@ if __name__ == "__main__":
         writer.add_scalar('Value loss', value_loss, iteration)
         writer.add_scalar('Max encountered fidelity', max_fidelity, iteration)
 
-        torch.save(neural_net.state_dict(), f"models/garbage_new_{iteration}.pt")
+        torch.save(neural_net.state_dict(), f"models/garbage_2p_{iteration}.pt")
         #torch.save(optimizer.state_dict(), f"models/TTTopt_{iteration}.pt")

@@ -1,3 +1,5 @@
+import numpy.random
+
 from TicTacToe import TicTacToe
 import numpy as np
 import torch
@@ -43,7 +45,7 @@ class Node:
         if child.visit_count == 0:
             q_value = 0
         else:
-            q_value = child.value_sum / child.visit_count  # +1 / 2 bc values can only be +1 and -1 child.value_sum / child.visit_count
+            q_value = 1 - ((child.value_sum / child.visit_count) + 1) / 2  # +1 / 2 bc values can only be +1 and -1 child.value_sum / child.visit_count
         # 1 - because players are changed every turn
         return q_value + self.args['C'] * np.sqrt(self.visit_count / (child.visit_count + 1)) * child.prior
 
@@ -215,42 +217,43 @@ if __name__ == '__main__':
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     model = ResNet(tictactoe, 4, 64, device=torch.device('cuda'))
-    model.load_state_dict(torch.load('models/garbage_new_19.pt'))
+    model.load_state_dict(torch.load('models/garbage_new_8.pt'))
     model.eval()
     model = model.to(device)
     mcts = MCTS_Play(tictactoe, args, model)
     state = tictactoe.get_initial_state()
 
-    # while True:
-    # print(state)
-    #
-    # if player == 1:
-    #     valid_moves = tictactoe.get_valid_moves(state)
-    #     print(f'valid moves: {[i for i in range(tictactoe.action_size) if valid_moves[i] == 1]}')
-    #     action = int(input(f'{player}: '))
-    #
-    #     # check if the action is valid
-    #     if valid_moves[action] == 0:
-    #         print('action not valid')
-    #         continue
-    # else:
-    #     neutral_state = tictactoe.change_perspective(state, player)
-    #     mcts_probs = mcts.search(neutral_state,None)
-    #     action = np.argmax(mcts_probs)
-    #
-    # state = tictactoe.get_next_state(state, action, player)
-    #
-    # value, is_terminal = tictactoe.get_value_and_terminated(state, action)
-    #
-    # if is_terminal:
-    #     print(state)
-    #     if value == 1:
-    #         print(player, "won")
-    #     else:
-    #         print("draw")
-    #     break
-    #
-    # player = tictactoe.get_opponent(player)
+    while True:
+        print(state)
+
+        if player == 1:
+            valid_moves = tictactoe.get_valid_moves(state)
+            #print(f'valid moves: {[i for i in range(tictactoe.action_size) if valid_moves[i] == 1]}')
+            #action = int(input(f'{player}: '))
+            action = np.random.choice(valid_moves)
+            print(f'action {action}')
+            # check if the action is valid
+            if valid_moves[action] == 0:
+                print('action not valid')
+                continue
+        else:
+            neutral_state = tictactoe.change_perspective(state, player)
+            mcts_probs = mcts.search(neutral_state,None)
+            action = np.argmax(mcts_probs)
+
+        state = tictactoe.get_next_state(state, action, player)
+
+        value, is_terminal = tictactoe.get_value_and_terminated(state, action)
+
+        if is_terminal:
+            print(state)
+            if value == 1:
+                print(player, "won")
+            else:
+                print("draw")
+            break
+
+        player = tictactoe.get_opponent(player)
 
     # pulse_str = '1110-1-1-1-11110-1-1-1-11100-1-1-1111110-1-111111-1-1-1-11111-1-1-101111-1-1-1-1-11111-1-1-1-10111-1-10-10111-1-1-1-1-111111-1-1-111-110-1-1-1-1011-1-1-10111110-1011111-1-1-1-111'
     # pulse_str = pulse_str.replace('1', '1,')
@@ -259,33 +262,33 @@ if __name__ == '__main__':
     # pulse_list.pop(-1)
     # pulse_list = [int(pulse) for pulse in pulse_list]
     # state = np.array(pulse_list)
-    print(state)
-    with tqdm.tqdm(total=125) as bar:
-        while True:
 
-            state_encoded = tictactoe.get_encoded_state(state)
-            state_encoded = torch.tensor(state_encoded, dtype=torch.float32, device=model.device).unsqueeze(0)
-            policy, predicted_value = model(state_encoded)
-
-            policy = torch.softmax(policy, dim=1).squeeze(0).cpu().detach().numpy()
-            valid_moves = tictactoe.get_valid_moves(state)
-            policy *= valid_moves
-            policy /= np.sum(policy)
-            action = np.random.choice(tictactoe.action_size, p=policy)
-
-            # mcts_probs = mcts.search(state,None)
-            # action = np.argmax(mcts_probs)
-
-
-            bar.update(1)
-            state = tictactoe.get_next_state(state, action, player)
-
-            value, is_terminal = tictactoe.get_value_and_terminated(state, action)
-
-            if is_terminal:
-                print(state)
-                print(f'Fidelity: {value}')
-                break
-
-            player = tictactoe.get_opponent(player)
-    print(f'pred:{predicted_value}')
+    # print(state)
+    # with tqdm.tqdm(total=125) as bar:
+    #     while True:
+    #
+    #         state_encoded = tictactoe.get_encoded_state(state)
+    #         state_encoded = torch.tensor(state_encoded, dtype=torch.float32, device=model.device).unsqueeze(0)
+    #         policy, predicted_value = model(state_encoded)
+    #
+    #         policy = torch.softmax(policy, dim=1).squeeze(0).cpu().detach().numpy()
+    #         valid_moves = tictactoe.get_valid_moves(state)
+    #         policy *= valid_moves
+    #         policy /= np.sum(policy)
+    #         action = np.random.choice(tictactoe.action_size, p=policy)
+    #
+    #         # mcts_probs = mcts.search(state,None)
+    #         # action = np.argmax(mcts_probs)
+    #
+    #         bar.update(1)
+    #         state = tictactoe.get_next_state(state, action, player)
+    #
+    #         value, is_terminal = tictactoe.get_value_and_terminated(state, action)
+    #
+    #         if is_terminal:
+    #             print(state)
+    #             print(f'Fidelity: {value}')
+    #             break
+    #
+    #         player = tictactoe.get_opponent(player)
+    # print(f'pred:{predicted_value}')
