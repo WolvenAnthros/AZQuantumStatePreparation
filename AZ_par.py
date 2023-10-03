@@ -9,11 +9,8 @@ import tqdm
 
 import MCTS
 from tqdm import trange
-from TicTacToe import TicTacToe
 
 from SFQ_sequence import SFQ
-
-#from Model_TicTacToe import ResNet
 from Model import ResNet
 
 
@@ -36,7 +33,7 @@ def selfPlay(game, params, queue, proc_num):
             temperature_action_probs = action_probs ** (1 / params['temperature'])
             temperature_action_probs /= np.sum(temperature_action_probs)
             action = np.random.choice(game.action_size,
-                                      p=temperature_action_probs)  # Divide temperature_action_probs with its sum in case of an error
+                                      p=temperature_action_probs)
 
             state = game.get_next_state(state, action, player)
 
@@ -51,10 +48,8 @@ def selfPlay(game, params, queue, proc_num):
                         hist_action_probs,
                         hist_outcome
                     ))
-                # print(f'\033[94m return memory: {returnMemory} \033[0m')
                 queue.put(returnMemory)
                 return
-                # break
 
             player = game.get_opponent(player)
 
@@ -79,7 +74,7 @@ def train(memory, neural_net):
         out_policy, out_value = neural_net(state)
 
         policy_loss = F.cross_entropy(out_policy, policy_targets)
-        value_loss = F.mse_loss(out_value, value_targets) # , reduction='sum'
+        value_loss = F.mse_loss(out_value, value_targets, reduction='sum')
         loss = policy_loss + value_loss
 
         optimizer.zero_grad()
@@ -88,23 +83,16 @@ def train(memory, neural_net):
     return policy_loss, value_loss, loss, max(value_targets).squeeze(0).cpu().detach().numpy()
 
 
-# class Manager(BaseManager):
-#     pass
-
-# Manager.register('TicTacToe', TicTacToe)
-# Manager.register('MCTS_Play', MCTS.MCTS_Play)
-# Manager.register('ResNet',ResNet)
-
 if __name__ == "__main__":
     game = SFQ()
     params = {
-        'C': 2,
-        'num_searches': 10,
+        'C': 4,
+        'num_searches': 300,
         'num_iterations': 20,
-        'num_self_plays': 2,
-        'num_parallel_games': 2,
+        'num_self_plays': 300,
+        'num_parallel_games': 2, # number of cores
         'num_epochs': 4,
-        'batch_size': 125,
+        'batch_size': 128,
         'temperature': 2,
         'dirichlet_epsilon': 0.25,
         'dirichlet_alpha': 0.3
@@ -113,9 +101,8 @@ if __name__ == "__main__":
     device = torch.device('cuda')  # 'cuda' if torch.cuda.is_available() else
     print(f'Selected device: {device}')
     neural_net = ResNet(game, 4, 64, device)
-    #neural_net.load_state_dict(torch.load('models/garbage_new_19.pt'))
-    optimizer = torch.optim.Adam(neural_net.parameters(), lr=1e-3, weight_decay=0.0001)
-    scheduler = lr_scheduler.ExponentialLR(optimizer,gamma=0.98,verbose=True)
+    optimizer = torch.optim.Adam(neural_net.parameters(), lr=0.01, weight_decay=0.0001)
+    scheduler = lr_scheduler.ExponentialLR(optimizer,gamma=0.95,verbose=True)
 
     neural_net.share_memory()
 
@@ -140,13 +127,12 @@ if __name__ == "__main__":
             proc.join()
             # print(f'\033[96m Proc {proc} joined \033[0m')
 
-        while True:  # seems to be enough to complete your loops, but it's just a demo condition, you should not use this
+        while True:
             try:
                 memory += queue.get(timeout=2)
-            except Exception as expt:  # the output_queue.get(timeout=1) will wait up to 1 second if the queue is momentarily empty. If the queue is empty for more than 1 sec, it raises an exception and it means the loop is complete. Again, this is not a good condition in real life, and this is just for testing.
+            except Exception as expt:  # the output_queue.get(timeout=1) will wait up to 1 second if the queue is momentarily empty. If the queue is empty for more than 1 sec, it raises an exception and it means the loop is complete.
                 break
 
-        # memory += selfPlay(mcts,game,params,queue)
         neural_net.to(torch.device('cuda'))
         neural_net.train()
         # print('State dict after mp:', neural_net.state_dict()['startBlock.0.weight'][0][0])
@@ -160,5 +146,5 @@ if __name__ == "__main__":
         writer.add_scalar('Value loss', value_loss, iteration)
         writer.add_scalar('Max encountered fidelity', max_fidelity, iteration)
 
-        torch.save(neural_net.state_dict(), f"models/garbage_2p_{iteration}.pt")
+        torch.save(neural_net.state_dict(), f"models/garbage_new_{iteration}.pt")
         #torch.save(optimizer.state_dict(), f"models/TTTopt_{iteration}.pt")

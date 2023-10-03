@@ -54,6 +54,7 @@ class AlphaZero():
 
                 # add temperature
                 temperature_action_probs = action_probs ** (1 / self.args['temperature'])
+                temperature_action_probs /= np.sum(temperature_action_probs)
 
                 action = np.random.choice(self.game.action_size, p=temperature_action_probs)
 
@@ -168,16 +169,16 @@ if __name__ == '__main__':
     print(f'Selected device: {device}')
     model = ResNet(tictactoe, 4, 64, device)
     #model.share_memory()
-    optimizer = torch.optim.Adam(model.parameters(), lr=6e-3, weight_decay=5e-4)
+    optimizer = torch.optim.Adam(model.parameters(), lr=0.2, weight_decay=5e-4)
     args = {
-        'C': 2,
+        'C': 4,
         'num_searches': 10,  # 00
         'num_iterations': 15,
         'num_self_plays': 5,  # 00
         'num_parallel_games': 3,  # number of cores taken by the computation!
-        'num_epochs': 8,  # 4
+        'num_epochs': 4,  # 4
         'batch_size': 128,
-        'temperature': 1,
+        'temperature': 2,
         'dirichlet_epsilon': 0.25,
         'dirichlet_alpha': 0.3
     }

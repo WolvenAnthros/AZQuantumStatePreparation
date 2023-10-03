@@ -4,7 +4,6 @@ from SFQ_calc import reward_calculation
 
 max_sequence_length = args['pulse_array_length']
 config = args['qbit_simulation_config']
-reward_threshold = args['reward_threshold']
 polarities_num = args['number_of_polarities']
 unexplored_pulse = 9
 

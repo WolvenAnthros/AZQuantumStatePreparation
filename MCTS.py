@@ -61,10 +61,11 @@ class Node:
 
                 child = Node(self.game, self.args, child_state, self, action, prior=prob)
                 self.children.append(child)
+        #return child
         try:
             return child
         except UnboundLocalError:
-            print(f'Warning! No child is created! Policy: {policy}')
+            print(f'Warning! No child is created!')
             return None
 
     def backpropagate(self, value):

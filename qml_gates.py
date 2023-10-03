@@ -121,5 +121,5 @@ if __name__ == "__main__":
     state, reward, done = move(state, 1, 24)
     state, reward, done = move(state, 2, 140)  # 140 - first three-qubit operation
     state, reward, done = move(state, 2, 138)
-    state, reward, done = move(state, 2, 5)
+    state, reward, done = move(state, 2, 199)
     print(f'Gates list: {state}')
